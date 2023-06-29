@@ -1,0 +1,76 @@
+Verilere daha hýzlý eriþebilmek için bu verilerin bellekte tutulmasýna caching denir.
+
+Sýk kullanýlan veritabaný bilgileri, konfigürasyon verileri, menü bilgileri, yetkiler, resim, video cachelenebilir.
+
+Güncellenen veriler, kiþisel veriler, riskli veriler cachlenmemelidir.
+
+In-Memory Caching : Verileri çalýþtýðý bilgisayarýn RAM'inde saklar
+
+Distributed Caching : Verileri birden fazla fiziksel makinede cacheleyen böylece farklý noktalarda tutarak daha güvenli bir
+davranýþ sergileyen yaklaþýmdýr. Büyük veri setleri için daha idealdir.
+
+Dockerize : docker run --name some-redis -p 1234:6379 -d redis
+- default redis port: 6379
+- Redis CLI baðlanmak için : docker exec -it <containerID> redis-cli
+
+Veri Türleri : 
+
+- String : Verileri metinsel tutar
+
+  SET NAME mert		--> ekleme
+  GET NAME			--> okuma
+  GETRANGE NAME 1 2 --> aralýk getirir "er" 
+  INCR sayi         --> arttýrýr
+  DECR sayi			--> azaltýr
+  APPEND NAME celik --> üzerine ekler "mertcelik"
+
+- List : Verileri koleksiyon olarak tutar
+
+  LPUSH NAMES mert ahmet  --> baþa ekleme
+  LRANGE NAMES 0 -1       --> okuma
+  RPUSH NAMES ayse        --> sona ekleme
+  LPOP NAMES              --> baþtan çýkarma
+  RPOP NAMES			  --> sondan çýkarma
+  LINDEX NAMES 1          --> veri getirme
+
+- Set : Birbirinden farklý deðerleri içeren veri kümeleri oluþturmak için kullanýlan veri türüdür.
+Sýralama olmaksýzýn unique veriler tutar.
+
+  SADD ANIMALS cat dog    --> veri ekleme
+  SREM ANIMALS cat        --> veri silme
+  SISMEMBER ANIMALS dog   --> arama
+  SINTER SINTER user1:BOOKS user2:BOOKS --> iki setteki kesiþimi getirir
+  SCARD ANIMALS           --> veri sayýsýný getirir
+
+- Sorted Set : Sýralý bir þekilde tutar. Her veriye score adý verilen deðer atanýr.
+
+  ZADD <key> <score> <value> --> ekleme
+
+- Hash : Key-Value formatýnda tutulan veri türüdür.
+
+  HMSET EMPLOYEES usernamne mert --> ekleme (HSET)
+  HMGET EMPLOYEES username  --> getirme (HGET)
+  HDEL EMPLOYEES username --> silme
+  HGETALL EMPLOYEES  --> tümünü getirme
+
+
+Redis'de türkçe karakter kullanýmý için cli'yi açarken "docker exec -it <containerID> redis-cli -raw" komutu kullanýlmalýdýr.
+
+In-Memory Caching iþlem sýrasý : 
+
+1) AddMemoryCache servisini ekleyin
+2) IMemoryCache referansýný inject edin
+3) Set ve Get metotlarýyla cache kaydedilir yada getirilir
+4) Remove ile silinir
+5) TryGetValue ile kontrollü bir biçimde veri okunur
+
+Absolute Expiration: Cachedeki datanýn net ömrü
+Sliding Expiration: Belirtilen süre boyunca cacheye her ulaþýldýðýnda ömrü o kadar uzar
+
+Distributed Caching iþlem sýrasý :
+
+1) StackExchangeRedis kütüphanesi yüklenir.
+2) AddStackExchangeRedisCache servisi eklenir
+3) IDistributedCache referansý inject edilir
+4) SetString metodu ile metinsel set ile binary olarak cacheleme yapýlabilir. Ayný þekilde get ve getBinary ile getirme iþlemleri yapýlýr.
+5) Remove ile silinir
