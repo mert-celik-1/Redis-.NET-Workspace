@@ -74,3 +74,22 @@ Distributed Caching iþlem sýrasý :
 3) IDistributedCache referansý inject edilir
 4) SetString metodu ile metinsel set ile binary olarak cacheleme yapýlabilir. Ayný þekilde get ve getBinary ile getirme iþlemleri yapýlýr.
 5) Remove ile silinir
+
+
+
+Redis Message Broker : Redis her ne kadar cacheleme iþlemi olarak kullanýlsa da pub/sub iþlemi yapabilen bir message broker özelliði taþýmaktadýr.
+
+Redis CLI : Genellikle verileri düzenlemek için ve pub/sub iþlemlerini test etmek amacýyla kullanýlýr
+
+1) Powershell'den iki terminal açýlýr
+2) Her ikisinde de redis cli'ye baðlanýlýr
+3) Subscribe olan terminal için : subscribe <channelName>
+4) Publish olan terminal için : publish <channelName> <meessage>
+
+
+Redis API : 
+
+1) .Net Core'da Redis API üzerinden pub/sub iþlemini gerçekleþtirmek için StackExchange.Redis kütüphanesi yüklenir
+2) ConnectionMultiplexer sýnýfý üzerinden Redis sunucusuna bir baðlantý oluþuturun.
+3) Devamýnda ise bu baðlantý üzerinden bir subscriber oluþturun.
+4) Bu aþamadan sonra davranýþlar publisher ve consumer olarak ikiye ayrýlýr.
