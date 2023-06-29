@@ -7,11 +7,17 @@ Güncellenen veriler, kiþisel veriler, riskli veriler cachlenmemelidir.
 In-Memory Caching : Verileri çalýþtýðý bilgisayarýn RAM'inde saklar
 
 Distributed Caching : Verileri birden fazla fiziksel makinede cacheleyen böylece farklý noktalarda tutarak daha güvenli bir
-davranýþ sergileyen yaklaþýmdýr. Büyük veri setleri için daha idealdir.
+davranýþ sergileyen yaklaþýmdýr. Büyük veri setleri için daha idealdir. Veri tutarsýzlýðýnýn önüne geçilmiþ olur.
+
+In-memory caching kullanýlan sunucularda olasý yaþanabilecek herhangi bir aksamada tüm cacheler silinecektir. Lakin distributed caching kullanýldýðý taktirde uygulamanýn sunucusundan baðýmsýz bir service üzerinde caching gerçekleþtirildiðinden dolayý verilerimiz güvenli bir þekilde tutulmaya devam edecektir. Bu durum tabi ki de uzaktaki bir service
+ile yapýlan iletiþimden dolayý in-memory caching’e nazaran azda olsa performans açýsýndan yavaþ seyredecektir lakin bu maliyet kolay kullaným ve implementasyon açýsýndan getirisi yüksek olmasýndan dolayý göz ardý edilebilir olacaktýr.
 
 Dockerize : docker run --name some-redis -p 1234:6379 -d redis
 - default redis port: 6379
 - Redis CLI baðlanmak için : docker exec -it <containerID> redis-cli
+
+
+-----------------------------------------------------------------------------------------------------------------------------
 
 Veri Türleri : 
 
@@ -56,6 +62,8 @@ Sýralama olmaksýzýn unique veriler tutar.
 
 Redis'de türkçe karakter kullanýmý için cli'yi açarken "docker exec -it <containerID> redis-cli -raw" komutu kullanýlmalýdýr.
 
+-----------------------------------------------------------------------------------------------------------------------------
+
 In-Memory Caching iþlem sýrasý : 
 
 1) AddMemoryCache servisini ekleyin
@@ -75,7 +83,7 @@ Distributed Caching iþlem sýrasý :
 4) SetString metodu ile metinsel set ile binary olarak cacheleme yapýlabilir. Ayný þekilde get ve getBinary ile getirme iþlemleri yapýlýr.
 5) Remove ile silinir
 
-
+-----------------------------------------------------------------------------------------------------------------------------
 
 Redis Message Broker : Redis her ne kadar cacheleme iþlemi olarak kullanýlsa da pub/sub iþlemi yapabilen bir message broker özelliði taþýmaktadýr.
 
@@ -93,3 +101,95 @@ Redis API :
 2) ConnectionMultiplexer sýnýfý üzerinden Redis sunucusuna bir baðlantý oluþuturun.
 3) Devamýnda ise bu baðlantý üzerinden bir subscriber oluþturun.
 4) Bu aþamadan sonra davranýþlar publisher ve consumer olarak ikiye ayrýlýr.
+
+
+-----------------------------------------------------------------------------------------------------------------------------
+
+Redis Replication : Redis ile yaptýðýmýz çalýþmalarda sunucudaki verilerin güvencesine saðlayabilmek ve bir kopyasýný saklayabilmek için önlem almak isteyebiliriz.
+Bunun için replication uygulayabiliriz.
+
+Modellenecek, replikasý alýnacak olan sunucya master denir.
+Replikayý alan sunucuya slave denir.
+
+Replication özelliðinde master ve slave arasýnda kurulan bir baðlantý olacak ve anlýk olarak veri aktarýmý olacaktýr.
+Eðer verilerde tutarsýzlýklar varsa redis masterdaki bu farkýn slaveye aktarýlmasý için talepte bulunacaktýr.
+Replication maliyetli bir iþlemdir.
+Bir masterýn birden fazla slave'i olabilir.
+
+Nasýl Uygulanýr ?
+
+1) Ýki tane redis sunucusu ayaða kaldýrýlýr.
+- docker run -p 1235:6379 --name redis-master -d redis
+- docker run -p 1236:6379 --name redis-slave -d redis
+
+2) Ardýndan master ve slave arasýndaki replication iliþkisini saðlayabilmek için masterýn IP'sini
+elde etmemiz gerekmektedir.
+
+- docker inspect -f "{{.NetworkSettings.IPAddress}}" redis-master
+
+3) Son olarak master ile slave arasýnda replication iliþkisini oluþturalým. Masterýn ipsi ve masterýn portu
+
+- docker exec -it redis-slave redis-cli slaveof 172.17.0.3 6379
+
+ Herhangi bir sunucunun replication bilgisini edinmek istiyorsanýz "info replication" talimatýný vermelisiniz.
+
+
+
+ -----------------------------------------------------------------------------------------------------------------------------
+
+Redis Sentinel : Redis veritabaný için kesintisiz sürdürülebilirlik amacýyla geliþtirilmiþ yönetim servisidir.
+
+Neden Kullanýrýz ?
+
+1) Redis sunucusu arýzalandýðý zaman Redis Sentinel servisi ile farklý bir sunucu üzerinden Redis çalýþmalarýna devam edebilir ve böylece kesintisiz hizmet vermeyi sürdürebiliriz.
+2) Bakým ve güncelleme süreçlerinde
+3) Yüksek trafik olduðu zaman redisin performansý yetmeyebilir. Bu durumlarda Sentinel ile daha performanslý çalýþýlabilir.
+4) Yedekleme ve geri yükleme
+
+
+Redis Sentinel master/slave replikasyon sistemi üzerinde çalýþan bir yönetim servisidir.
+Sentinel slaveler arasýnda lider seçecektir.
+
+Failover : Eðer ana sunucuda bir sorun olursa sentinel yapýsý yedek sunucuyu ana suncuu yapacaktýr.
+
+Nasýl Kurulur ? 
+
+1) Docker containerlarýnýn haberleþmesini saðlayabilmek için bir network oluþturunuz.
+- docker network create redis-network
+
+2) Redis master sunucusunu oluþturunuz
+
+- docker run -d --name redis-master -p 6379:6379 --network redis-network redis redis-server
+
+3) Redis slave sunucularýný oluþturrunuz
+
+- docker run -d --name redis-slave1 -p 6380:6379 --network redis-network redis redis-server --slaveof redis-master 6379
+- docker run -d --name redis-slave2 -p 6381:6379 --network redis-network redis redis-server --slaveof redis-master 6379
+- docker run -d --name redis-slave3 -p 6382:6379 --network redis-network redis redis-server --slaveof redis-master 6379
+
+Tek Bir Sentinel Sunucusu Varsa ? 
+
+Tek bir sentinel sunucusunun olduðu mimari tasarlayabilmek için öncelikle sentinel sunucusunun yapýlandýrýlmasý gerekmektedir.
+Bunun için bilgisayarýnýzýn herhangi bir dizininde aþaðýdaki gibi sentinel.conf dosyasý olusturunuz. Ve içeriði verilen komutlarla doldurunuz.
+
+# Sentinel tarafýndan izlenecek Master sunucusu :
+sentinel monitor mymaster <ip> <port> 1
+# Master sunucunun tepki vermemesi durumunda Sentinel'in bekleme süresi
+sentinel down-after-miliseconds mymaster 5000
+# Master sunucunun yeniden yapýlandýrýlmasý için Sentinel'in beklemesi gereken süre
+sentinel failover-timeout mymaster 1000
+#Sentinel tarafýndan eþzamanlý olarak kullanýlacak slave sayýsý :
+sentinel parallel-syncs mymaster 3
+
+
+
+Yukarýda belirtilen conf dosyasý aþaðýdaki komutla çalýþtýrýlýr.
+- docker run -d --name redis-sentinel --network redis-network -v <FilePath:/usr/local/etc/redis/sentinel.conf> redis redis-sentinel /usr/local/etc/redis/sentinel.conf
+
+
+Birden Fazla Sentinel Sunucusu Varsa ?
+
+Yukarýdaki sentinel.conf dosyasý ayný þekilde oluþturulur. Sadece ilk komutta kaç taneyse 1 tane yerine
+kaç sentinel sunucusu varsa o sayýyý yazýyoruz. Ve çalýþtýrma komutumuz aþaðýdaki gibi oluyor. Kaç sunucu istiyorsak o kadar run edilecek komut yazýlýr.
+
+docker run -d --name redis-sentinel-1 -p 6383:26379 --network redis-network -v <FilePath:/usr/local/etc/redis/sentinel.conf> redis redis-sentinel /usr/local/etc/redis/sentinel.conf
